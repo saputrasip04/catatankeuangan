@@ -290,31 +290,32 @@ export default function Pengaturan() {
           )}
 
           {/* Tautan Akses Cepat untuk HP & Browser Lain */}
-          {webAppUrl && secret && (
-            <div className="pt-3 border-t border-gray-100">
-              <div className="p-4 rounded-xl bg-teal-50/80 border border-teal-200/90 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-teal-700 flex-shrink-0" />
-                    <span className="text-xs font-bold text-teal-900">
-                      Tautan Cepat HP & Browser Lain
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyShareLink}
-                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>{copiedShareLink ? 'Tautan Berhasil Disalin!' : 'Salin Tautan Akses'}</span>
-                  </button>
+          <div className="pt-3 border-t border-gray-100">
+            <div className="p-4 rounded-xl bg-teal-50/80 border border-teal-200/90 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-teal-700 flex-shrink-0" />
+                  <span className="text-xs font-bold text-teal-900">
+                    Tautan Cepat HP & Browser Lain
+                  </span>
                 </div>
-                <p className="text-[11px] text-teal-800/90 leading-relaxed">
-                  Buka tautan ini di browser HP atau browser lain (seperti Edge / Safari). URL Web App dan Kunci Secret akan otomatis terpasang dan langsung mengunduh seluruh data Anda dari Google Sheets.
-                </p>
+                <button
+                  type="button"
+                  disabled={!webAppUrl || !secret}
+                  onClick={handleCopyShareLink}
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedShareLink ? 'Tautan Berhasil Disalin!' : 'Salin Tautan Akses'}</span>
+                </button>
               </div>
+              <p className="text-[11px] text-teal-800/90 leading-relaxed">
+                {!webAppUrl || !secret
+                  ? 'Isi dan simpan URL Web App serta Kunci Secret di atas terlebih dahulu untuk membuat tautan cepat.'
+                  : 'Buka tautan ini di browser HP atau browser lain (seperti Edge / Safari). URL Web App dan Kunci Secret akan otomatis terpasang dan langsung mengunduh seluruh data Anda dari Google Sheets.'}
+              </p>
             </div>
-          )}
+          </div>
         </form>
       </div>
 
