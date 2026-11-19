@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { getSettings, saveSettings } from '../lib/settings.js';
+import { getSettings, saveSettings, generateSetupLink } from '../lib/settings.js';
 import { apiTestConnection } from '../sync/api.js';
 import { kickSync } from '../sync/engine.js';
 import { downloadCsv } from '../lib/csv.js';
@@ -24,7 +24,8 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react';
 
 export default function Pengaturan() {
@@ -34,6 +35,7 @@ export default function Pengaturan() {
   const [secret, setSecret] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // { ok: boolean, message: string }
@@ -63,6 +65,21 @@ export default function Pengaturan() {
       setCopiedSecret(true);
       setTimeout(() => setCopiedSecret(false), 2000);
     } catch (_) {}
+  };
+
+  const handleCopyShareLink = async () => {
+    const link = generateSetupLink();
+    if (!link) {
+      alert('Simpan URL dan Kunci Secret terlebih dahulu.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedShareLink(true);
+      setTimeout(() => setCopiedShareLink(false), 2500);
+    } catch (_) {
+      prompt('Salin tautan ini untuk dibuka di HP / browser lain:', link);
+    }
   };
 
   const handleSaveSettings = (e) => {
@@ -269,6 +286,33 @@ export default function Pengaturan() {
                 <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
               )}
               <span>{testResult.message}</span>
+            </div>
+          )}
+
+          {/* Tautan Akses Cepat untuk HP & Browser Lain */}
+          {webAppUrl && secret && (
+            <div className="pt-3 border-t border-gray-100">
+              <div className="p-4 rounded-xl bg-teal-50/80 border border-teal-200/90 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-teal-700 flex-shrink-0" />
+                    <span className="text-xs font-bold text-teal-900">
+                      Tautan Cepat HP & Browser Lain
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyShareLink}
+                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedShareLink ? 'Tautan Berhasil Disalin!' : 'Salin Tautan Akses'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-teal-800/90 leading-relaxed">
+                  Buka tautan ini di browser HP atau browser lain (seperti Edge / Safari). URL Web App dan Kunci Secret akan otomatis terpasang dan langsung mengunduh seluruh data Anda dari Google Sheets.
+                </p>
+              </div>
             </div>
           )}
         </form>

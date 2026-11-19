@@ -44,3 +44,55 @@ export function clearSettings() {
     return false;
   }
 }
+
+/**
+ * Membuat tautan akses cepat (berisi URL & Secret terenkripsi base64)
+ * untuk mempermudah setup di HP atau browser lain tanpa ketik manual.
+ */
+export function generateSetupLink() {
+  const { webAppUrl, secret } = getSettings();
+  if (!webAppUrl || !secret) return '';
+  try {
+    const jsonStr = JSON.stringify({ webAppUrl, secret });
+    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    return `${origin}${pathname}?setup=${encoded}`;
+  } catch (err) {
+    console.error('Gagal membuat link setup:', err);
+    return '';
+  }
+}
+
+/**
+ * Memeriksa parameter URL (?setup=...) saat aplikasi pertama dibuka.
+ * Jika ditemukan, pengaturan langsung disimpan otomatis ke localStorage,
+ * URL dibersihkan, dan mengembalikan true.
+ */
+export function checkAutoSetupFromUrl() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    let rawConfig = params.get('setup');
+
+    if (!rawConfig && window.location.hash.includes('setup=')) {
+      const match = window.location.hash.match(/setup=([^&]+)/);
+      if (match) rawConfig = match[1];
+    }
+
+    if (rawConfig) {
+      const decodedStr = decodeURIComponent(escape(atob(rawConfig)));
+      const parsed = JSON.parse(decodedStr);
+      if (parsed.webAppUrl && parsed.secret) {
+        saveSettings(parsed);
+        // Bersihkan parameter query dari address bar tanpa refresh
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal membaca konfigurasi auto-setup dari URL:', err);
+  }
+  return false;
+}
