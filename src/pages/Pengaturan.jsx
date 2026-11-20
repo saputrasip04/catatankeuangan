@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getSettings, saveSettings, generateSetupLink } from '../lib/settings.js';
-import { apiTestConnection } from '../sync/api.js';
+import { apiTestConnection, apiUpsert } from '../sync/api.js';
 import { kickSync } from '../sync/engine.js';
 import { downloadCsv } from '../lib/csv.js';
 import { clearAllLocalData } from '../db/index.js';
@@ -25,7 +25,9 @@ import {
   EyeOff,
   Copy,
   Sparkles,
-  Share2
+  Share2,
+  Database,
+  UploadCloud
 } from 'lucide-react';
 
 export default function Pengaturan() {
@@ -38,6 +40,7 @@ export default function Pengaturan() {
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [testResult, setTestResult] = useState(null); // { ok: boolean, message: string }
   const [isClearing, setIsClearing] = useState(false);
 
@@ -82,6 +85,55 @@ export default function Pengaturan() {
     }
   };
 
+  const handleSetXamppLocal = () => {
+    const url = 'http://localhost/catatankeuangan/api/';
+    const sec = secret || 'xampp_mysql_local';
+    setWebAppUrl(url);
+    setSecret(sec);
+    saveSettings({ webAppUrl: url, secret: sec });
+    setIsSaved(true);
+    setTestResult(null);
+    setTimeout(() => setIsSaved(false), 2500);
+  };
+
+  const handleSetXamppLan = () => {
+    const url = 'http://192.168.18.9/catatankeuangan/api/';
+    const sec = secret || 'xampp_mysql_local';
+    setWebAppUrl(url);
+    setSecret(sec);
+    saveSettings({ webAppUrl: url, secret: sec });
+    setIsSaved(true);
+    setTestResult(null);
+    setTimeout(() => setIsSaved(false), 2500);
+  };
+
+  const handlePushAllToDatabase = async () => {
+    if (!items || items.length === 0) {
+      alert('Tidak ada data transaksi lokal di browser ini.');
+      return;
+    }
+    if (!webAppUrl || !secret) {
+      alert('Simpan pengaturan koneksi database terlebih dahulu.');
+      return;
+    }
+    if (!window.confirm(`Kirim seluruh ${items.length} transaksi lokal ke database MySQL sekarang?`)) return;
+
+    setIsSyncingAll(true);
+    let successCount = 0;
+    try {
+      for (const it of items) {
+        const res = await apiUpsert(it);
+        if (res.ok) successCount++;
+      }
+      alert(`Berhasil mengirim ${successCount} dari ${items.length} transaksi ke database MySQL!`);
+      kickSync();
+    } catch (err) {
+      alert('Terjadi kesalahan saat sinkronisasi: ' + err.message);
+    } finally {
+      setIsSyncingAll(false);
+    }
+  };
+
   const handleSaveSettings = (e) => {
     e.preventDefault();
     saveSettings({ webAppUrl, secret });
@@ -92,7 +144,7 @@ export default function Pengaturan() {
 
   const handleTestConnection = async () => {
     if (!webAppUrl.trim() || !secret.trim()) {
-      setTestResult({ ok: false, message: 'URL Web App dan Secret harus diisi terlebih dahulu.' });
+      setTestResult({ ok: false, message: 'URL Backend dan Secret harus diisi terlebih dahulu.' });
       return;
     }
 
@@ -104,7 +156,8 @@ export default function Pengaturan() {
     try {
       const res = await apiTestConnection();
       if (res.ok) {
-        setTestResult({ ok: true, message: 'Koneksi Berhasil! Terhubung ke Google Apps Script.' });
+        const backendName = webAppUrl.includes('catatankeuangan/api') ? 'Database XAMPP MySQL' : 'Google Apps Script';
+        setTestResult({ ok: true, message: `Koneksi Berhasil! Terhubung ke ${backendName}.` });
       } else {
         setTestResult({ ok: false, message: 'Gagal: ' + (res.error || 'Respon tidak valid') });
       }
@@ -158,26 +211,46 @@ export default function Pengaturan() {
         </p>
       </div>
 
-      {/* 1. Form Koneksi Google Apps Script */}
+      {/* 1. Form Koneksi Database (XAMPP MySQL / Apps Script) */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-5">
-        <div className="border-b border-gray-100 pb-3">
-          <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <LinkIcon className="w-4 h-4 text-teal-600" />
-            <span>Koneksi Backend (Google Apps Script)</span>
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            Data transaksi disimpan di Google Sheets pribadi Anda melalui Web App Apps Script.
+        <div className="border-b border-gray-100 pb-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <Database className="w-4 h-4 text-teal-600" />
+              <span>Koneksi Database & Backend</span>
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSetXamppLocal}
+                className="px-2.5 py-1 text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                title="Gunakan database XAMPP MySQL lokal di laptop ini"
+              >
+                <span>🐬 XAMPP MySQL (Lokal)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSetXamppLan}
+                className="px-2.5 py-1 text-[11px] font-bold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                title="Gunakan database XAMPP MySQL untuk HP via WiFi (192.168.18.9)"
+              >
+                <span>📱 XAMPP MySQL (HP/WiFi)</span>
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            Dikelola dengan <b>XAMPP MySQL lokal</b> (tabel <code>transaksi</code> di database <code>catatan_keuangan</code>) atau <b>Google Apps Script (Cloud)</b>.
           </p>
         </div>
 
         <form onSubmit={handleSaveSettings} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
-              URL Web App Apps Script *
+              URL Endpoint Backend (XAMPP API / Apps Script) *
             </label>
             <input
               type="url"
-              placeholder="https://script.google.com/macros/s/.../exec"
+              placeholder="http://localhost/catatankeuangan/api/ atau URL Apps Script"
               value={webAppUrl}
               onChange={(e) => setWebAppUrl(e.target.value)}
               required
@@ -325,12 +398,12 @@ export default function Pengaturan() {
           Tindakan & Cadangan Data
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col justify-between space-y-3">
             <div>
-              <p className="text-sm font-bold text-gray-900">Sinkronisasi Manual</p>
+              <p className="text-sm font-bold text-gray-900">Sinkronisasi Otomatis</p>
               <p className="text-xs text-gray-500 mt-1">
-                Kirim transaksi yang belum terkirim dan ambil pembaruan terbaru dari server segera.
+                Kirim transaksi yang belum terkirim dan ambil pembaruan terbaru dari database segera.
               </p>
             </div>
             <button
@@ -346,6 +419,33 @@ export default function Pengaturan() {
             </button>
           </div>
 
+          <div className="p-4 rounded-xl border border-teal-100 bg-teal-50/50 flex flex-col justify-between space-y-3">
+            <div>
+              <p className="text-sm font-bold text-teal-900">Kirim Semua ke Database</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Kirim seluruh {items.length} transaksi lokal ke database MySQL XAMPP saat ini.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isSyncingAll}
+              onClick={handlePushAllToDatabase}
+              className="w-full py-2 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+            >
+              {isSyncingAll ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Mengirim...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Kirim Semua ({items.length})</span>
+                </>
+              )}
+            </button>
+          </div>
+
           <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col justify-between space-y-3">
             <div>
               <p className="text-sm font-bold text-gray-900">Ekspor ke CSV</p>
@@ -356,7 +456,7 @@ export default function Pengaturan() {
             <button
               type="button"
               onClick={handleExportCsv}
-              className="w-full py-2 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              className="w-full py-2 px-3 rounded-lg bg-white border border-gray-300 hover:bg-gray-100 font-semibold text-xs text-gray-700 flex items-center justify-center gap-1.5 transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Unduh CSV</span>
